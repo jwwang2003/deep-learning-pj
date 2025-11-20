@@ -1,0 +1,17 @@
+# YOLO dataset configuration for project-1-at-2025-11-19-03-10-17b66581
+path: ../data
+
+# Update these to point at your actual train/val/test splits if you create them.
+train:
+  - aoi-1/images  # dataset root relative to this file
+val:
+  - aoi-3/images
+test:  # optional
+  - aoi-2/images
+
+names:
+  0: "Other defect"
+  1: "Acceptable"
+  2: "Ink spot"
+  3: "Edge chip"
+  4: "Stain"
