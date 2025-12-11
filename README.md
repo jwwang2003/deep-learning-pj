@@ -50,6 +50,16 @@ opencv-python 4.12.0.88 requires numpy<2.3.0,>=2; python_version >= "3.9", but y
 Successfully installed numpy-1.26.4
 ```
 
+## Dataset
+
+In our project, we choose to use Label Studio as our main tool for hand labelling
+our custom dataset.
+
+Within the root of the project, run the following command to instantly start labelling:
+```
+docker run -it -p 8080:8080 -v ${PWD}/mydata:/label-studio/data heartexlabs/label-studio:latest label-studio --log-level DEBUG
+```
+
 ## Training & running inference
 
 Run the following commands in the root project folder.
@@ -67,3 +77,18 @@ Uses the freshest `best.pt` checkpoint saved under `runs_project1/*/weights/`.
 python yolo_aoi_test_demo.py
 ```
 Results land in `runs_project1/test_demos/<run-name>-<split>/`.
+
+python train.py --data-root data\segmentation\project-1-at-2025-12-11-06-33-9fc6a7a1 \
+--coco-json data\segmentation\project-1-at-2025-12-11-06-33-9fc6a7a1\result.json \
+--images-dir data\segmentation\project-1-at-2025-12-11-06-33-9fc6a7a1\images \
+--masks-dir data\segmentation\project-1-at-2025-12-11-06-33-9fc6a7a1\masks
+--model attr2unet --batch-size 4 --num-workers 4
+
+(base) PS B:\projects\deep-learning\deep-learning-pj> python train.py `                
+>>   --data-root "data\segmentation\project-1-at-2025-12-11-06-33-9fc6a7a1" `
+>>   --coco-json "data\segmentation\project-1-at-2025-12-11-06-33-9fc6a7a1\result.json" `
+>>   --images-dir "data\segmentation\project-1-at-2025-12-11-06-33-9fc6a7a1\images" `
+>>   --masks-dir "data\segmentation\project-1-at-2025-12-11-06-33-9fc6a7a1\masks" `  
+>>   --model attr2unet --batch-size 3 --sample-every 50 --sample-count 4 --sample-dir runs/samples_attr2
+
+python -m helpers.s3_fetch data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/result.json --out data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/images --env-file .env

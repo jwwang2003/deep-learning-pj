@@ -216,3 +216,13 @@ __marimo__/
 .streamlit/secrets.toml
 
 data/*/
+!data/detection
+data/detection/*/
+
+!data/segmentation
+data/segmentation/*/images
+
+mydata/*
+
+# intermediate training data
+runs/*
