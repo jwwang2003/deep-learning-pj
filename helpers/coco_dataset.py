@@ -1,4 +1,4 @@
-"""COCO segmentation dataset + augmentations for 600x600 training."""
+"""COCO segmentation dataset + augmentations"""
 
 from __future__ import annotations
 
@@ -25,51 +25,174 @@ class CocoPaths:
 
 
 class PairTransform:
-    """Pickle-safe paired transform for image/mask."""
+    """
+    Pickle-safe paired transform for image/mask.
 
-    def __init__(self, train: bool, size: int = 600) -> None:
+    aug_mode:
+      - "none"   : resize + pad only, no augmentation
+      - "light"  : ORIGINAL augmentations (to reproduce overfitting runs)
+      - "strong" : stronger augmentations (more geometry + color jitter + noise)
+    """
+
+    def __init__(
+        self,
+        train: bool,
+        size: int = 600,
+        aug_mode: str = "light",
+        jitter_strength: float = 0.3,
+    ) -> None:
         self.train = train
         self.size = size
+        self.aug_mode = aug_mode
+        self.jitter_strength = jitter_strength
 
-    def __call__(self, image: Image.Image, mask: Image.Image) -> Tuple[torch.Tensor, torch.Tensor]:
-        # Resize to the requested size
-        image_resized = TF.resize(
-            image, (self.size, self.size), interpolation=InterpolationMode.BILINEAR
-        )
-        mask_resized = TF.resize(mask, (self.size, self.size), interpolation=InterpolationMode.NEAREST)
+        if self.aug_mode not in {"none", "light", "strong"}:
+            raise ValueError(f"Invalid aug_mode={aug_mode!r}, expected 'none' | 'light' | 'strong'.")
 
-        # Pad up to the next multiple of 16 so UNet skip connections align after pooling/upsampling.
-        pad_w = (16 - (image_resized.width % 16)) % 16
-        pad_h = (16 - (image_resized.height % 16)) % 16
+    def _pad_to_multiple_of_16(self, image: Image.Image, mask: Image.Image) -> Tuple[Image.Image, Image.Image]:
+        """Pad to next multiple of 16 in width/height."""
+        pad_w = (16 - (image.width % 16)) % 16
+        pad_h = (16 - (image.height % 16)) % 16
         if pad_w or pad_h:
             padding = (0, 0, pad_w, pad_h)  # left, top, right, bottom
-            image_resized = TF.pad(image_resized, padding, fill=0)
-            mask_resized = TF.pad(mask_resized, padding, fill=0)
+            image = TF.pad(image, padding, fill=0)
+            mask = TF.pad(mask, padding, fill=0)
+        return image, mask
 
-        if self.train:
-            if random.random() < 0.5:
-                image_resized = TF.hflip(image_resized)
-                mask_resized = TF.hflip(mask_resized)
-            if random.random() < 0.2:
-                image_resized = TF.vflip(image_resized)
-                mask_resized = TF.vflip(mask_resized)
-            if random.random() < 0.3:
-                angle = random.uniform(-10, 10)
-                image_resized = TF.rotate(
-                    image_resized, angle, interpolation=InterpolationMode.BILINEAR
-                )
-                mask_resized = TF.rotate(mask_resized, angle, interpolation=InterpolationMode.NEAREST)
-            if random.random() < 0.4:
-                image_resized = TF.adjust_brightness(
-                    image_resized, brightness_factor=random.uniform(0.8, 1.2)
-                )
-                image_resized = TF.adjust_contrast(
-                    image_resized, contrast_factor=random.uniform(0.8, 1.2)
-                )
+    def _apply_light_aug(self, image: Image.Image, mask: Image.Image) -> Tuple[Image.Image, Image.Image]:
+        """
+        Your ORIGINAL augmentations:
 
-        image_tensor = TF.to_tensor(image_resized)
-        mask_tensor = torch.from_numpy(np.array(mask_resized, dtype=np.float32) / 255.0).unsqueeze(0)
+        - hflip p=0.5
+        - vflip p=0.2
+        - rotation [-10, 10] deg, p=0.3
+        - brightness & contrast in [0.8, 1.2], p=0.4
+
+        Note: in the original code, padding happened BEFORE augmentation.
+        We keep that behavior in 'light' mode to reproduce earlier runs.
+        """
+        if random.random() < 0.5:
+            image = TF.hflip(image)
+            mask = TF.hflip(mask)
+
+        if random.random() < 0.2:
+            image = TF.vflip(image)
+            mask = TF.vflip(mask)
+
+        if random.random() < 0.3:
+            angle = random.uniform(-10, 10)
+            image = TF.rotate(image, angle, interpolation=InterpolationMode.BILINEAR)
+            mask = TF.rotate(mask, angle, interpolation=InterpolationMode.NEAREST)
+
+        if random.random() < 0.4:
+            image = TF.adjust_brightness(image, brightness_factor=random.uniform(0.8, 1.2))
+            image = TF.adjust_contrast(image, contrast_factor=random.uniform(0.8, 1.2))
+
+        return image, mask
+
+    def _apply_strong_aug(self, image: Image.Image, mask: Image.Image) -> Tuple[Image.Image, Image.Image]:
+        """
+        Stronger augmentations:
+
+        - hflip p=0.5
+        - vflip p=0.2
+        - random affine (rot/translate/scale/shear) p=0.7
+        - color jitter (brightness/contrast/sat/hue) p=0.8 on image only
+
+        Padding is applied AFTER geometry in 'strong' mode.
+        """
+        # Geometric: shared between image & mask
+        if random.random() < 0.5:
+            image = TF.hflip(image)
+            mask = TF.hflip(mask)
+
+        if random.random() < 0.2:
+            image = TF.vflip(image)
+            mask = TF.vflip(mask)
+
+        if random.random() < 0.7:
+            angle = random.uniform(-15.0, 15.0)
+            translate_frac = 0.05
+            max_dx = translate_frac * image.width
+            max_dy = translate_frac * image.height
+            translate = (
+                random.uniform(-max_dx, max_dx),
+                random.uniform(-max_dy, max_dy),
+            )
+            scale = random.uniform(0.9, 1.1)
+            shear = random.uniform(-5.0, 5.0)
+
+            image = TF.affine(
+                image,
+                angle=angle,
+                translate=translate,
+                scale=scale,
+                shear=shear,
+                interpolation=InterpolationMode.BILINEAR,
+                fill=0,
+            )
+            mask = TF.affine(
+                mask,
+                angle=angle,
+                translate=translate,
+                scale=scale,
+                shear=shear,
+                interpolation=InterpolationMode.NEAREST,
+                fill=0,
+            )
+
+        # Photometric: image only
+        if random.random() < 0.8:
+            s = self.jitter_strength  # e.g. 0.3
+            b = random.uniform(1.0 - s, 1.0 + s)
+            c = random.uniform(1.0 - s, 1.0 + s)
+            t = random.uniform(1.0 - s, 1.0 + s)
+            h = random.uniform(-0.02, 0.02)
+
+            image = TF.adjust_brightness(image, b)
+            image = TF.adjust_contrast(image, c)
+            image = TF.adjust_saturation(image, t)
+            image = TF.adjust_hue(image, h)
+
+        return image, mask
+
+    def __call__(self, image: Image.Image, mask: Image.Image) -> Tuple[torch.Tensor, torch.Tensor]:
+        # --- 1) Resize ---
+        image = TF.resize(image, (self.size, self.size), interpolation=InterpolationMode.BILINEAR)
+        mask = TF.resize(mask, (self.size, self.size), interpolation=InterpolationMode.NEAREST)
+
+        # --- 2) Padding / augmentation order depends on mode ---
+        if not self.train:
+            # Val / test: always pad, no aug
+            image, mask = self._pad_to_multiple_of_16(image, mask)
+
+        elif self.aug_mode == "none":
+            # Train but no augmentation: same as val/test, only resize + pad
+            image, mask = self._pad_to_multiple_of_16(image, mask)
+
+        elif self.aug_mode == "light":
+            # ORIGINAL behavior: pad first, then light aug
+            image, mask = self._apply_light_aug(image, mask)
+            image, mask = self._pad_to_multiple_of_16(image, mask)
+
+        elif self.aug_mode == "strong":
+            # Strong aug: geometry first, then pad
+            image, mask = self._apply_strong_aug(image, mask)
+            image, mask = self._pad_to_multiple_of_16(image, mask)
+
+        # --- 3) To tensor + optional noise (strong mode only) ---
+        image_tensor = TF.to_tensor(image)  # [0,1]
+
+        if self.train and self.aug_mode == "strong" and random.random() < 0.3:
+            # Small Gaussian noise
+            noise_std = 0.02
+            noise = torch.randn_like(image_tensor) * noise_std
+            image_tensor = (image_tensor + noise).clamp(0.0, 1.0)
+
+        mask_arr = np.array(mask, dtype=np.float32) / 255.0
+        mask_tensor = torch.from_numpy(mask_arr).unsqueeze(0)
         mask_tensor = (mask_tensor > 0.5).float()
+
         return image_tensor, mask_tensor
 
 
@@ -99,9 +222,26 @@ def _load_or_build_mask(
     return mask
 
 
-def make_transforms(train: bool, size: int = 600) -> Callable:
-    """Return a pickle-safe callable that applies paired transforms to image/mask."""
-    return PairTransform(train=train, size=size)
+def make_transforms(
+    train: bool,
+    size: int = 600,
+    aug_mode: str = "light",
+    jitter_strength: float = 0.3,
+) -> Callable:
+    """
+    Return a pickle-safe callable that applies paired transforms to image/mask.
+
+    aug_mode:
+      - "none"   : resize + pad only
+      - "light"  : original augmentations (hflip/vflip/rot + light brightness/contrast)
+      - "strong" : stronger geometric + photometric + optional noise
+    """
+    return PairTransform(
+        train=train,
+        size=size,
+        aug_mode=aug_mode,
+        jitter_strength=jitter_strength,
+    )
 
 
 class CocoSegmentationDataset(Dataset):
