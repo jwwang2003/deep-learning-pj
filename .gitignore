@@ -225,4 +225,21 @@ data/segmentation/*/images
 mydata/*
 
 # intermediate training data
-runs/*
+
+# Ignore everything in runs
+/runs/*
+
+# But keep the attr2unet directory itself
+!/runs/*/
+
+# Ignore everything inside attr2unet...
+/runs/*/*
+
+# ...except these four files
+# !/runs/**/*/best.pt
+!/runs/**/*/config.json
+!/runs/**/*/history.csv
+!/runs/**/*/history.json
+!/runs/**/*/inference_benchmark_best.json
+!/runs/**/*/loss_curve.svg
+!/runs/**/*/lr_curve.svg
