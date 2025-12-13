@@ -1,5 +1,8 @@
 {
-  "data_root": "data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1",
+  "data_roots": [
+    "data/segmentation/collection0",
+    "data/segmentation/collection1"
+  ],
   "save_dir": "runs",
   "model": "attr2unet",
   "t": 2,
@@ -16,9 +19,9 @@
   "compile": false,
   "resume": null,
   "image_size": 600,
-  "coco_json": "data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/result.json",
-  "masks_dir": "data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/masks",
-  "images_dir": "data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/images",
+  "coco_json": null,
+  "masks_dir": null,
+  "images_dir": null,
   "sample_every": 50,
   "sample_dir": "runs/samples_attr2unet",
   "sample_count": 4,

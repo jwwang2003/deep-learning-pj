@@ -92,3 +92,32 @@ python train.py --data-root data\segmentation\project-1-at-2025-12-11-06-33-9fc6
 >>   --model attr2unet --batch-size 3 --sample-every 50 --sample-count 4 --sample-dir runs/samples_attr2
 
 python -m helpers.s3_fetch data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/result.json --out data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/images --env-file .env
+
+## Downloading the dataset \(\)
+
+Populate `.env` file and run the S3 helper script to download the images inside of the bucket.
+
+### Collection 0 \(stored privately on Amazon S3\)
+
+```
+python -m helpers.s3_data data/segmentation/collection0/result.json --out data/segmentation/collection0/images --env-file .env
+```
+
+### Collection 1 \(stored privately on Amazon S3\)
+
+The S3 python script can also renmaed the links in case the storage location has changed:
+
+```
+python -m helpers.s3_data data/segmentation/collection1/result.json \
+  --rename --bucket sichain-aoi-datasets --prefix "jqq" --download
+```
+
+### Collection 2 \(stored privately on Amazon S3\)
+
+
+### Generate some preview masks and overlays to ensure the data is OK
+
+```
+python -m helpers.generate_masks data/segmentation/collection0/result.json --limit 10 --overlay
+python -m helpers.generate_masks data/segmentation/collection1/result.json --limit 10 --overlay
+```

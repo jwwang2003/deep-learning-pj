@@ -3,7 +3,7 @@
 from .coco import COCO, COCOAnnotation, COCOCategory, COCOImage
 from .coco_dataset import CocoPaths, CocoSegmentationDataset, make_transforms
 from .generate_masks import build_masks
-from .s3_fetch import download_images, load_coco
+from .s3_data import download_images, load_coco
 
 __all__ = [
     "COCO",
