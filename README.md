@@ -93,6 +93,50 @@ python train.py --data-root data\segmentation\project-1-at-2025-12-11-06-33-9fc6
 
 python -m helpers.s3_fetch data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/result.json --out data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/images --env-file .env
 
+## Exporting inference-ready weights
+
+The training checkpoints (e.g. `runs/attr2unet/best.pt`) store optimizer/state that is
+useful for resuming but bloats deployment artifacts. Use `export_inference.py` to produce
+lean weights plus TorchScript bundles that are optimized for GPU and CPU inference:
+
+```
+python export_inference.py \
+  --checkpoint runs/attr2unet/best.pt \
+  --config runs/attr2unet/config.json \
+  --image-size 600 \
+  --output-dir exports/attr2unet \
+  --targets weights gpu-script cpu-script cpu-int8 vanilla
+```
+
+Artifacts created:
+- `inference_fp32.pt`: weights only (float32).
+- `inference_fp16.pt`: FP16 weights for GPU deployment (~2× smaller).
+- `model_gpu_fp16.ts`: TorchScript traced in half precision (requires CUDA to export).
+- `model_cpu_fp32.ts`: TorchScript traced on CPU with `torch.jit.optimize_for_inference`.
+- `model_cpu_int8.ts`: optional FX-quantized script for CPU (falls back gracefully if quantization fails).
+- `checkpoint_vanilla.pt`: optional copy of the original training checkpoint (include `vanilla` in `--targets`).
+
+Load the weight-only files with the usual model builders (`AttentionR2UNet`, etc.).
+TorchScript bundles can be loaded with `torch.jit.load` directly in inference services.
+
+### Batch inference on arbitrary images
+
+After exporting, you can run the trained model on any set of images without COCO
+annotations via `run_exported_inference.py`:
+
+```
+python run_exported_inference.py \
+  --weights exports/attr2unet/model_cpu_fp32.ts \
+  --images /path/to/img1.png /path/to/img2.jpg \
+  --output-dir runs/custom_inference \
+  --threshold 0.45 \
+  --save-overlay
+```
+
+`--weights` accepts either the TorchScript bundles (`.ts`) or the weight-only
+snapshots (`inference_fp32.pt`, etc.). Masks are saved as `<stem>_mask.png` and
+optional overlays highlight predictions in red for quick inspection.
+
 ## Downloading the dataset \(\)
 
 Populate `.env` file and run the S3 helper script to download the images inside of the bucket.

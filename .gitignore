@@ -243,3 +243,6 @@ mydata/*
 !/runs/**/*/inference_benchmark_best.json
 !/runs/**/*/loss_curve.svg
 !/runs/**/*/lr_curve.svg
+
+# Ignore exported model weights
+exports/
