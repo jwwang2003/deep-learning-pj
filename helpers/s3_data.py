@@ -5,9 +5,13 @@ import os
 from pathlib import Path
 from typing import Iterable, Set, Optional
 
-import boto3
-from botocore.config import Config
-from botocore.exceptions import ClientError
+try:
+    import boto3
+    from botocore.config import Config
+    from botocore.exceptions import ClientError
+except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    boto3 = None  # type: ignore[assignment]
+    Config = ClientError = None  # type: ignore[assignment]
 from dotenv import load_dotenv
 
 from .coco import COCO
@@ -108,15 +112,15 @@ def rewrite_coco_image_paths_inplace(
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
     json_text = json.dumps(data, ensure_ascii=True, indent=2)
-
     json_text = json_text.replace("/", "\\/")
-
     out_path.write_text(json_text, encoding="utf-8")
     print(f"[rename] wrote: {out_path} (updated {changed} image file_name entries)")
     return out_path
 
 
 def download_images(coco_path: Path, destination_dir: Path) -> None:
+    if boto3 is None:
+        raise RuntimeError("boto3 is required to download images. Please install boto3 to use this helper.")
     destination_dir.mkdir(parents=True, exist_ok=True)
     coco = load_coco(coco_path)
     s3_uris = parse_s3_uris([img.file_name for img in coco.images])
@@ -182,6 +186,8 @@ def _split_s3_uri(uri: str) -> tuple[str, str]:
 
 
 def _make_session():
+    if boto3 is None:
+        raise RuntimeError("boto3 is required to create an AWS session.")
     return boto3.session.Session(
         aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
         aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),

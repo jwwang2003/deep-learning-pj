@@ -1,0 +1,11 @@
+path: /home/jwwang/workspace/github/deep-learning-pj/data/detection/aoi_augmented
+train: train/images
+val: val/images
+test: test/images
+nc: 5
+names:
+  0: Other defect
+  1: Acceptable
+  2: Ink spot
+  3: Edge chip
+  4: Stain

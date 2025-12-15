@@ -1,0 +1,13 @@
+<View>
+  <Image name="image" value="$image"/>
+
+  <Header value="PolygonLabels"/>
+  <PolygonLabels name="labelpolygons" toName="image">
+    <Label value="DIE" background="rgba(218, 1, 238, 1)"/>
+  </PolygonLabels>
+
+  <Header value="RectangleLabels"/>
+  <RectangleLabels name="label_rectangles" toName="image">
+    <Label value="DIE" background="rgba(218, 1, 238, 1)"/>
+  </RectangleLabels>
+</View>

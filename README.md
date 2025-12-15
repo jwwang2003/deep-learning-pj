@@ -156,6 +156,11 @@ python -m helpers.s3_data data/segmentation/collection1/result.json \
   --rename --bucket sichain-aoi-datasets --prefix "jqq" --download
 ```
 
+```
+python -m helpers.s3_data data/segmentation/collection2/result.json \
+  --bucket sichain-aoi-datasets --download
+```
+
 ### Collection 2 \(stored privately on Amazon S3\)
 
 
@@ -164,4 +169,13 @@ python -m helpers.s3_data data/segmentation/collection1/result.json \
 ```
 python -m helpers.generate_masks data/segmentation/collection0/result.json --limit 10 --overlay
 python -m helpers.generate_masks data/segmentation/collection1/result.json --limit 10 --overlay
+```
+
+```
+label-studio-converter import coco -i data/segmentation/collection1/result.json -o data/segmentation/collection1/label_annotation.json
+```
+
+```
+python test.py data/segmentation/collection3/la
+bel_annotation.json -o  data/segmentation/collection3/label.json
 ```

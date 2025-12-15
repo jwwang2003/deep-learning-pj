@@ -7,6 +7,7 @@ from typing import Iterable, List
 from PIL import Image, ImageDraw
 
 from .coco import COCO, COCOAnnotation, COCOImage
+from .coco_mask_utils import add_annotation_to_mask
 
 
 def build_masks(
@@ -46,11 +47,9 @@ def build_masks(
         draw = ImageDraw.Draw(mask)
 
         for ann in anns:
-            if ann.segmentation:
-                for seg in ann.segmentation:
-                    if isinstance(seg, list) and len(seg) >= 6:
-                        draw.polygon(seg, fill=255)
-            elif ann.bbox:
+            if add_annotation_to_mask(mask, ann):
+                continue
+            if ann.bbox:
                 x, y, w, h = ann.bbox
                 draw.rectangle([x, y, x + w, y + h], fill=255)
 
