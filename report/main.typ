@@ -544,6 +544,156 @@ YOLO（You Only Look Once）属于单阶段检测器：一张图只前向一次�
 - 导出脚本位于 `export_inference.py` 与 `export_attention_r2unet.py`，具体命令见“模型导出与运行（Export & Inference）”小节。
 - 导出产物默认输出到 `exports/`，可用 `run_exported_inference.py` 做快速推理检查。
 
+== 运行与复现命令
+
+为方便复现训练与推理，这里汇总关键运行步骤与脚本入口（均在仓库根目录执行）。
+
+=== 环境准备与子模块
+
+```bash
+# 以 Python 3.10 创建环境
+conda create --name cv python=3.10
+pip install -r requirements.txt
+
+# 初始化 YOLOv5 子模块
+git submodule update --init --recursive
+```
+
+若运行时遇到 NumPy 2.x 的 ABI 报错，可降级：
+
+```text
+ImportError: A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x ...
+```
+
+```bash
+pip install "numpy<2"
+```
+
+OpenCV 相关警告可忽略（本项目未直接依赖 OpenCV）。
+
+=== 数据获取与标注
+
+Label Studio（Docker）：
+
+```bash
+docker run -it -p 8080:8080 \
+  -v ${PWD}/mydata:/label-studio/data \
+  heartexlabs/label-studio:latest \
+  label-studio --log-level DEBUG
+```
+
+私有 S3 数据下载（需填写 `.env`）：
+
+```bash
+# Collection 0
+python -m helpers.s3_data data/segmentation/collection0/result.json \
+  --out data/segmentation/collection0/images --env-file .env
+
+# Collection 1 (可重命名路径前缀)
+python -m helpers.s3_data data/segmentation/collection1/result.json \
+  --rename --bucket sichain-aoi-datasets --prefix "jqq" --download
+
+# Collection 2
+python -m helpers.s3_data data/segmentation/collection2/result.json \
+  --bucket sichain-aoi-datasets --download
+```
+
+快速检查掩膜与叠加：
+
+```bash
+python -m helpers.generate_masks data/segmentation/collection0/result.json --limit 10 --overlay
+python -m helpers.generate_masks data/segmentation/collection1/result.json --limit 10 --overlay
+```
+
+Label Studio COCO 导入/转换示例：
+
+```bash
+label-studio-converter import coco \
+  -i data/segmentation/collection1/result.json \
+  -o data/segmentation/collection1/label_annotation.json
+
+python test.py data/segmentation/collection3/label_annotation.json \
+  -o data/segmentation/collection3/label.json
+```
+
+=== 训练与推理
+
+目标检测训练（YOLOv5 微调）：
+
+```bash
+python yolo_aoi_fine_tune.py
+```
+
+检测推理（测试集）：
+
+```bash
+python yolo_aoi_test_demo.py
+```
+
+语义分割训练（ATTR2UNet）：
+
+```bash
+python train.py \
+  --data-root data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1 \
+  --coco-json data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/result.json \
+  --images-dir data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/images \
+  --masks-dir data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/masks \
+  --model attr2unet --batch-size 4 --num-workers 4
+```
+
+从标注 JSON 拉取原图：
+
+```bash
+python -m helpers.s3_fetch \
+  data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/result.json \
+  --out data/segmentation/project-1-at-2025-12-11-06-33-9fc6a7a1/images \
+  --env-file .env
+```
+
+=== 导出与部署推理
+
+分割模型导出（权重与 TorchScript）：
+
+```bash
+python export_inference.py \
+  --checkpoint runs/attr2unet/best.pt \
+  --config runs/attr2unet/config.json \
+  --image-size 600 \
+  --output-dir exports/attr2unet \
+  --targets weights gpu-script cpu-script cpu-int8 vanilla
+```
+
+导出产物包含：
+`inference_fp32.pt`、`inference_fp16.pt`、`model_gpu_fp16.ts`、`model_cpu_fp32.ts`、`model_cpu_int8.ts`，以及可选的 `checkpoint_vanilla.pt`。
+
+任意图像批量推理：
+
+```bash
+python run_exported_inference.py \
+  --weights exports/attr2unet/model_cpu_fp32.ts \
+  --images /path/to/img1.png /path/to/img2.jpg \
+  --output-dir runs/custom_inference \
+  --threshold 0.45 \
+  --save-overlay
+```
+
+YOLOv5 推理权重抽取：
+
+```bash
+python -m helpers.export_yolov5_weights \
+  --checkpoint runs_aoi_project/yolov5s-aoi-fourcls/weights/best.pt \
+  --output-dir exports/yolov5s-aoi-fourcls
+```
+
+TorchScript 冒烟测试：
+
+```bash
+python -m helpers.test_yolov5_torchscript \
+  --weights exports/yolov5s-aoi-fourcls/yolov5s-aoi-fourcls.ts \
+  --images data/detection/aoi_demo/*.jpg \
+  --output-dir runs/yolov5_ts_eval
+```
+
 
 == 数据增强与过拟合对比
 
@@ -729,14 +879,17 @@ YOLOv5 在第 76 个 epoch 达到精确率 0.878、召回率 0.615，mAP\@0.5 �
 ```bash
 # 导出权重与 TorchScript
 python export_inference.py \
-  --weights runs/attr2unet/weights/best.pt \
-  --out exports/attr2unet
+  --checkpoint runs/attr2unet/best.pt \
+  --config runs/attr2unet/config.json \
+  --image-size 600 \
+  --output-dir exports/attr2unet \
+  --targets weights gpu-script cpu-script cpu-int8
 
 # 运行导出模型推理
 python run_exported_inference.py \
-  --model exports/attr2unet/attr2unet_ts_fp16.pt \
+  --weights exports/attr2unet/model_cpu_fp32.ts \
   --images data/images \
-  --out runs/exported_inference
+  --output-dir runs/exported_inference
 ```
 
 上述流程对应的导出产物包括 FP16/FP32 权重与 TorchScript 文件，适合接入 C++/Rust 等部署场景；若需嵌入式/CPU 推理，可在导出阶段增加量化或精简选项。
