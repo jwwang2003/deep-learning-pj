@@ -1,0 +1,10 @@
+<View>
+    <Image name="image" value="$image"/>
+    <RectangleLabels name="label" toName="image">
+        <Label value="其他外观不良" background="#FFA39E"/>
+        <Label value="可接受" background="#D4380D"/>
+        <Label value="崩边" background="#FFC069"/>
+        <Label value="沾污" background="#AD8B00"/>
+        <Label value="墨点" label="Ink Stain" background="#D3F261"/>
+    </RectangleLabels>
+</View>

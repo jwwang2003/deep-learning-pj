@@ -1,0 +1,16 @@
+<View>
+    <Header value="Select label and click the image to start"/>
+    <Image name="image" value="$image" zoom="true"/>
+
+    <RectangleLabels name="label" toName="image"
+        strokeWidth="3" pointSize="small"
+        opacity="0.4">
+    <Label value="DIE" background="red"/>
+    </RectangleLabels>
+
+    <PolygonLabels name="poly" toName="image"
+        strokeWidth="3" pointSize="small"
+        opacity="0.4">
+    <Label html="DIE(poly)" value="DIE_p" background="red"/>
+    </PolygonLabels>
+</View>

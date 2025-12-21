@@ -1,5 +1,9 @@
 # deep-learning-pj
 
+Completed tasks:
+- image \(DIE\) segmentation
+- object \(defect\) detection
+
 ## Setting up
 
 Create a new Conda environment that uses `Python 3.10`:
@@ -136,6 +140,36 @@ python run_exported_inference.py \
 `--weights` accepts either the TorchScript bundles (`.ts`) or the weight-only
 snapshots (`inference_fp32.pt`, etc.). Masks are saved as `<stem>_mask.png` and
 optional overlays highlight predictions in red for quick inspection.
+
+### YOLOv5 weight extraction
+
+Detection runs live under `runs_aoi_project/<run-name>`. To strip a YOLOv5
+checkpoint down to CPU FP32 and GPU FP16 inference weights, run:
+
+```
+python -m helpers.export_yolov5_weights \
+  --checkpoint runs_aoi_project/yolov5s-aoi-fourcls/weights/best.pt \
+  --output-dir exports/yolov5s-aoi-fourcls
+```
+
+The helper writes `<run-name>_cpu_fp32.pt` and `<run-name>_gpu_fp16.pt` inside
+the chosen output directory—both keep the YOLOv5 model object but drop optimizer
+state for light deployment on CPU or CUDA hosts.
+
+### TorchScript smoke test
+
+After exporting YOLOv5 TorchScript bundles (via `yolov5/export.py`), run:
+
+```
+python -m helpers.test_yolov5_torchscript \
+  --weights exports/yolov5s-aoi-fourcls/yolov5s-aoi-fourcls.ts \
+  --images data/detection/aoi_demo/*.jpg \
+  --output-dir runs/yolov5_ts_eval
+```
+
+The script prints detections for each image and (optionally) writes annotated
+frames, making it easy to confirm that the `.ts` artifact behaves as expected
+before wiring it into production services.
 
 ## Downloading the dataset \(\)
 

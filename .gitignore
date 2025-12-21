@@ -246,3 +246,6 @@ mydata/*
 
 # Ignore exported model weights
 exports/
+
+# Ignore demo images
+demo/

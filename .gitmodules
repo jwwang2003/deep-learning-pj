@@ -1,3 +1,6 @@
 [submodule "yolov5"]
 	path = yolov5
 	url = https://github.com/ultralytics/yolov5.git
+[submodule "report/fonts"]
+	path = report/fonts
+	url = https://github.com/jwwang2003/fonts
