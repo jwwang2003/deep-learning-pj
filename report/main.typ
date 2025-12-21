@@ -389,7 +389,7 @@ docker run -it -p 8080:8080 \
 
 === 目标检测 \（Object \(defect\) Detection\）
 
-YOLO（You Only Look Once）属于单阶段检测器：一张图只前向一次，就直接回归候选框与类别。经典流程可拆成 Backbone → Neck → Head：Backbone 负责多尺度特征提取，Neck 融合不同分辨率的语义信息，Head 在多尺度特征图上输出分类、置信度与边界框回归，再通过 NMS 得到最终结果。
+YOLO（You Only Look Once）属于单阶段检测器#cite(label("DBLP:journals/corr/RedmonDGF15"))：一张图只前向一次，就直接回归候选框与类别。经典流程可拆成 Backbone → Neck → Head：Backbone 负责多尺度特征提取，Neck 融合不同分辨率的语义信息，Head 在多尺度特征图上输出分类、置信度与边界框回归，再通过 NMS 得到最终结果。
 
 *YOLOv5（Ultralytics 实现）* 通常概括为 CSPDarknet 主干 + PANet 特征融合 + anchor-based 检测头。CSP 结构减少冗余计算并稳定训练；PANet 负责上下路径融合；anchor-based 头需要预设锚框并做匹配与调参。
 
